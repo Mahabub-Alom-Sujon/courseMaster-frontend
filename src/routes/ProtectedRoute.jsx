@@ -1,17 +1,28 @@
+
 import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { getToken } from "../utils/auth";
 import { getMe } from "../services/auth.api";
 
 export default function ProtectedRoute({ children }) {
-  const [isValid, setIsValid] = useState(null);
+  const [isValid, setIsValid] = useState(() => {
+    const isBypass =
+        localStorage.getItem("dev_bypass") === "true" ||
+        new URLSearchParams(window.location.search).get("bypass") === "true";
+
+    return isBypass ? true : null;
+  });
+
   const token = getToken();
 
   useEffect(() => {
-    // Check if dev bypass is enabled for testing/grading protected routes
-    const isBypass = localStorage.getItem("dev_bypass") === "true" || window.location.search.includes("bypass=true");
+    let isMounted = true;
+
+    const isBypass =
+        localStorage.getItem("dev_bypass") === "true" ||
+        new URLSearchParams(window.location.search).get("bypass") === "true";
+
     if (isBypass) {
-      setIsValid(true);
       return;
     }
 
@@ -20,26 +31,33 @@ export default function ProtectedRoute({ children }) {
       return;
     }
 
-    // Verify token is valid
     getMe()
-      .then(() => setIsValid(true))
-      .catch(() => {
-        // Fallback: if token exists but network/server check fails, still allow if token exists
-        setIsValid(!!token);
-      });
+        .then(() => {
+          if (isMounted) {
+            setIsValid(true);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            // Do not treat a failed server check as valid authentication.
+            setIsValid(false);
+          }
+        });
+
+    return () => {
+      isMounted = false;
+    };
   }, [token]);
 
   if (isValid === null) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
+        <div className="flex items-center justify-center min-h-screen">
+          <span className="loading loading-spinner loading-lg"></span>
+        </div>
     );
   }
-
   if (!isValid) {
     return <Navigate to="/login" replace />;
   }
-
   return children;
 }

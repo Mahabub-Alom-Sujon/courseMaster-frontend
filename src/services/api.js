@@ -7,15 +7,16 @@ const api = axios.create({
 
 // Request interceptor - automatically add token
 api.interceptors.request.use(
-  (config) => {
-    const token = getToken();
-    if (token) {
-      config.headers.Authorization = token;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
+    (config) => {
+        const token = getToken();
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
 );
+
 
 // Response interceptor - handle errors globally
 api.interceptors.response.use(

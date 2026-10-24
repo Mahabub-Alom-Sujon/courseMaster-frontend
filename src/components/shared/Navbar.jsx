@@ -10,13 +10,16 @@ export default function Navbar() {
     const token = getToken();
     const [me, setMe] = useState(null);
 
-    const navLinkClass = ({ isActive, to }) =>
-        (isActive || window.location.pathname.startsWith("/"))
+    // Fix 1: Correct active link matching
+    const navLinkClass = ({ isActive }) =>
+        isActive
             ? "text-primary font-semibold"
             : "text-base-content/80 hover:text-primary";
 
     const handleLogout = () => {
         clearToken();
+        localStorage.removeItem("token");
+        localStorage.removeItem("user_token");
         setMe(null);
         navigate("/");
         window.location.reload();
@@ -24,13 +27,17 @@ export default function Navbar() {
 
     useEffect(() => {
         const loadMe = async () => {
-            if (!token) return setMe(null);
+            const currentToken = getToken() || localStorage.getItem("token");
+            if (!currentToken) return setMe(null);
+
             try {
                 const res = await getMe();
-                setMe(res.data);
-            } catch {
-                clearToken();
-                setMe(null);
+                // Fix 2: Safe User Parsing from Backend Response
+                const userData = res.data?.user || res.data?.data || res.data;
+                setMe(userData);
+            } catch (err) {
+                console.error("Failed to load user:", err);
+                // Catch block handling
             }
         };
         loadMe();
@@ -55,7 +62,7 @@ export default function Navbar() {
                         <li><NavLink className={navLinkClass} to="/">Home</NavLink></li>
                         <li><NavLink className={navLinkClass} to="/courses">Courses</NavLink></li>
 
-                        {/* ✅ Dashboard when logged in OR when dev_bypass is active */}
+                        {/* ✅ Dashboard when logged in */}
                         {(token && me) ? (
                             <li>
                                 <NavLink
@@ -76,7 +83,6 @@ export default function Navbar() {
 
                 {/* RIGHT */}
                 <div className="navbar-end gap-2">
-                    {/* Theme Toggle */}
                     <ThemeToggle />
 
                     {/* Desktop buttons if NOT logged in */}
@@ -108,7 +114,6 @@ export default function Navbar() {
 
                                 <div className="my-2 border-t border-base-300" />
 
-                                {/* ✅ Dashboard inside dropdown only when logged in */}
                                 <li>
                                     <Link to={me.role === "admin" ? "/admin" : "/student"}>
                                         Dashboard
@@ -124,28 +129,23 @@ export default function Navbar() {
                         </div>
                     )}
 
-                    {/* Mobile hamburger */}
+                    {/* Mobile hamburger - Removed max-h-32 restriction */}
                     <div className="dropdown dropdown-end md:hidden">
                         <label tabIndex={0} className="btn btn-ghost btn-circle">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor">
+                                 viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                                    d="M4 6h16M4 12h16M4 18h16" />
+                                      d="M4 6h16M4 12h16M4 18h16" />
                             </svg>
                         </label>
 
                         <ul
                             tabIndex={0}
-                            className="
-                menu menu-sm dropdown-content mt-3 p-3 shadow
-                bg-base-100 rounded-box w-56 border border-base-300
-                items-center text-center max-h-32 overflow-hidden
-              "
+                            className="menu menu-sm dropdown-content mt-3 p-3 shadow bg-base-100 rounded-box w-56 border border-base-300 items-center text-center"
                         >
                             <li><NavLink className={navLinkClass} to="/">Home</NavLink></li>
                             <li><NavLink className={navLinkClass} to="/courses">Courses</NavLink></li>
 
-                            {/* ✅ Dashboard only when logged in */}
                             {token && me && (
                                 <li>
                                     <NavLink
@@ -180,7 +180,6 @@ export default function Navbar() {
 
                                     <div className="my-2 w-full border-t border-base-300" />
 
-                                    {/* ✅ Dashboard only when logged in */}
                                     <li className="w-full">
                                         <Link to={me?.role === "admin" ? "/admin" : "/student"} className="w-full">
                                             Dashboard

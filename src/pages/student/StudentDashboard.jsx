@@ -8,8 +8,19 @@ import { getCourseById } from "../../services/courses.api";
 
 export default function StudentDashboard() {
     const dispatch = useDispatch();
-    const { enrollments, loading, error } = useSelector((state) => state.enrollment);
-    const { currentCourse } = useSelector((state) => state.courses);
+    // const { enrollments, loading, error } = useSelector((state) => state.enrollment);
+    const enrollmentState = useSelector(
+        (state) => state.enrollment
+    );
+    const enrollments = Array.isArray(enrollmentState?.enrollments)
+        ? enrollmentState.enrollments
+        : [];
+    const loading = enrollmentState?.loading ?? false;
+    const error = enrollmentState?.error ?? null;
+
+    const { currentCourse } = useSelector(
+        (state) => state.courses
+    );
 
     const [expandedCourse, setExpandedCourse] = useState(null);
     const [courseStats, setCourseStats] = useState({}); // { courseId: { quizStats, assignmentStats, courseData, lessonMap } }
@@ -54,6 +65,7 @@ export default function StudentDashboard() {
 
     // Fetch stats for a specific course (optimized)
     const loadCourseStats = async (courseId, forceRefresh = false) => {
+        if (!courseId) return;
         // Skip if already loaded and not forcing refresh
         if (courseStats[courseId] && !forceRefresh) return;
 
@@ -67,25 +79,38 @@ export default function StudentDashboard() {
             let courseData = courseStats[courseId]?.courseData;
 
             // Only fetch course data if not available
+            // if (!courseData || forceRefresh) {
+            //     try {
+            //         // Try to get from current course if it matches
+            //         if (currentCourse?._id === courseId) {
+            //             courseData = currentCourse;
+            //         } else {
+            //             // Fetch directly via API
+            //             const res = await getCourseById(courseId);
+            //             courseData = res.data;
+            //         }
+            //     } catch (err) {
+            //         console.error("Failed to fetch course:", err);
+            //         // Use existing courseData if available, otherwise null
+            //         if (!courseData) {
+            //             courseData = null;
+            //         }
+            //     }
+            // }
+
             if (!courseData || forceRefresh) {
                 try {
-                    // Try to get from current course if it matches
                     if (currentCourse?._id === courseId) {
                         courseData = currentCourse;
                     } else {
-                        // Fetch directly via API
                         const res = await getCourseById(courseId);
                         courseData = res.data;
                     }
                 } catch (err) {
                     console.error("Failed to fetch course:", err);
-                    // Use existing courseData if available, otherwise null
-                    if (!courseData) {
-                        courseData = null;
-                    }
+                    if (!courseData) courseData = null;
                 }
             }
-
             // Fetch quiz and assignment stats in parallel
             const [quizRes, assignmentRes] = await Promise.all([
                 getQuizStats(courseId).catch(err => {
@@ -97,10 +122,8 @@ export default function StudentDashboard() {
                     return { data: { average: 0, totalAssignments: 0, reviewedCount: 0, submissions: [] } };
                 }),
             ]);
-
             // Create lesson map for fast lookups
             const lessonMap = courseData ? createLessonMap(courseData) : {};
-
             setCourseStats(prev => ({
                 ...prev,
                 [courseId]: {

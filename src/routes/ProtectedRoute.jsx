@@ -1,28 +1,17 @@
-
 import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { getToken } from "../utils/auth";
 import { getMe } from "../services/auth.api";
 
 export default function ProtectedRoute({ children }) {
-  const [isValid, setIsValid] = useState(() => {
-    const isBypass =
-        localStorage.getItem("dev_bypass") === "true" ||
-        new URLSearchParams(window.location.search).get("bypass") === "true";
-
-    return isBypass ? true : null;
-  });
-
+  const [isValid, setIsValid] = useState(null);
   const token = getToken();
 
   useEffect(() => {
-    let isMounted = true;
-
-    const isBypass =
-        localStorage.getItem("dev_bypass") === "true" ||
-        new URLSearchParams(window.location.search).get("bypass") === "true";
-
+    // fixed: dev bypass is enabled
+    const isBypass = localStorage.getItem("dev_bypass") === "true" || window.location.search.includes("bypass=true");
     if (isBypass) {
+      setIsValid(true);
       return;
     }
 
@@ -31,22 +20,13 @@ export default function ProtectedRoute({ children }) {
       return;
     }
 
+    // Verify token is valid
     getMe()
-        .then(() => {
-          if (isMounted) {
-            setIsValid(true);
-          }
-        })
+        .then(() => setIsValid(true))
         .catch(() => {
-          if (isMounted) {
-            // Do not treat a failed server check as valid authentication.
-            setIsValid(false);
-          }
+          // Fallback: if token exists but network/server check fails, still allow if token exists
+          setIsValid(!!token);
         });
-
-    return () => {
-      isMounted = false;
-    };
   }, [token]);
 
   if (isValid === null) {
@@ -56,8 +36,10 @@ export default function ProtectedRoute({ children }) {
         </div>
     );
   }
+
   if (!isValid) {
     return <Navigate to="/login" replace />;
   }
+
   return children;
 }

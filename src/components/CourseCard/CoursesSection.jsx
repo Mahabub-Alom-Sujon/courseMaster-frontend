@@ -44,7 +44,6 @@ export default function CoursesSection() {
             setLoading(false);
         }
     };
-
     useEffect(() => {
         fetchCourses();
         // eslint-disable-next-line
